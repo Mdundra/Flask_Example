@@ -42,6 +42,7 @@ env:
 
 permissions:
   contents: read
+   statuses: read
 
 jobs:
   deploy:
@@ -92,3 +93,21 @@ jobs:
         service: ${{ env.ECS_SERVICE }}
         cluster: ${{ env.ECS_CLUSTER }}
         wait-for-service-stability: true
+
+steps:
+- name: Check commit status
+  id: commit-status
+  run: |
+  # Check the status of the Git commit
+    CURRENT_STATUS=$(curl --url https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/status --header 'authorization: token ${{ secrets.GITHUB_TOKEN }}' | jq -r '.state');
+    echo "Current status is: $CURRENT_STATUS"
+    while [ "${CURRENT_STATUS^^}" = "PENDING" ];
+      do sleep 10;
+      CURRENT_STATUS=$(curl --url https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/status --header 'authorization: token ${{ secrets.GITHUB_TOKEN }}' | jq -r '.state');
+    done;
+    echo "Current status is: $CURRENT_STATUS"
+    if [ "${CURRENT_STATUS^^}" = "FAILURE" ];
+      then echo "Commit status failed. Canceling execution";
+      exit 1;
+    fi
+... more steps ...    
